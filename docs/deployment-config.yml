@@ -1,0 +1,7 @@
+repository_owner: nhamhung
+repository_name: disaster-tweets-nlp
+default_branch: main
+pages_url: https://nhamhhung.github.io/disaster-tweets-nlp/
+streamlit_url: https://disaster-tweets-nlp.streamlit.app
+streamlit_entrypoint: app/streamlit_app.py
+streamlit_secrets: []
