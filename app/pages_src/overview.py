@@ -11,13 +11,14 @@ from disaster_tweets_nlp import config
 
 def render():
     st.title("📊 Dataset Overview")
-    df = shared.get_tweets_df()
     st.caption(
-        f"{len(df):,} tweets available in this environment, labeled for whether they describe a real "
+        "11,370 real tweets labeled for whether they describe a real "
         "disaster — a public mirror of Kaggle's \"Real or Not? NLP with "
         "Disaster Tweets\" task (the competition itself requires "
         "accepting its rules on the website, which the API can't do)."
     )
+
+    df = shared.get_tweets_df()
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Tweets", f"{len(df):,}")
