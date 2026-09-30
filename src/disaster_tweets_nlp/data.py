@@ -7,6 +7,7 @@ deploying without a Docker image that already bakes the file in; see
 `app/pages_src/shared.py` for how deployed credentials get wired in).
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -49,9 +50,15 @@ def _require_file(path: Path) -> Path:
     return path
 
 
+def using_sample_data() -> bool:
+    """Whether the bundled Kaggle-derived sample is the active data source."""
+    return config.SAMPLE_CSV.exists() and os.getenv("USE_FULL_KAGGLE_DATA", "").lower() not in {"1", "true", "yes"}
+
+
 def load_tweets() -> pd.DataFrame:
-    """Load the full labeled-tweets table."""
-    return pd.read_csv(_require_file(config.RAW_CSV))
+    """Load fast sample data by default; opt into the full Kaggle download with USE_FULL_KAGGLE_DATA=true."""
+    path = config.SAMPLE_CSV if using_sample_data() else _require_file(config.RAW_CSV)
+    return pd.read_csv(path)
 
 
 def split_features_target(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
