@@ -53,6 +53,11 @@ plt.rcParams.update({
 })
 ```
 
+::: {.callout-tip}
+## Interactive application
+[Open the Streamlit app](https://disaster-tweets-nlp.streamlit.app){target="_blank"}
+:::
+
 ## Introduction
 
 I built this project to predict whether a tweet describes a **real

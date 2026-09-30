@@ -13,7 +13,7 @@ python scripts/smoke_app.py
 streamlit run app/streamlit_app.py
 ```
 
-The trained model is included, while the app obtains its source dataset through the Kaggle API.
+The trained model and a compact Kaggle-derived sample are included for fast startup. Full data remains available through the Kaggle API.
 
 ## Deploy your fork
 
@@ -21,7 +21,7 @@ The trained model is included, while the app obtains its source dataset through 
 2. Push to your own public GitHub repository with `main` as the default branch.
 3. In Settings → Pages, select **GitHub Actions** as the source.
 4. In Streamlit Community Cloud, create an app from your repository, branch `main`, file `app/streamlit_app.py`.
-5. Configure Kaggle access using either KAGGLE_API_TOKEN or a [kaggle] section with username and key.
+5. The bundled sample needs no secret. To use full data, set `USE_FULL_KAGGLE_DATA=true` and configure either `KAGGLE_API_TOKEN` or a `[kaggle]` section with username and key.
 6. Wait for CI and Pages to pass, then record the URLs and revision in `docs/DEPLOYMENT_ACCEPTANCE.md`.
 
 Do not copy another owner's tokens or URL values. GitHub Pages hosts the static report; Streamlit Community Cloud runs the interactive Python app.
