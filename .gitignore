@@ -3,8 +3,6 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
-!data/demo/
-!data/demo/tweets_sample.csv
 models/*.joblib
 !models/model.joblib
 

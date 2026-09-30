@@ -11,16 +11,8 @@ Or via Docker (from the project root):
 import streamlit as st
 
 from pages_src import feature_engineering, model_insights, overview, predict
-from pages_src import shared
 
 st.set_page_config(page_title="Disaster Tweets NLP", page_icon="🌪️", layout="wide")
-
-if shared.data.using_demo_data():
-    st.sidebar.info(
-        "Cloud demo mode: predictions use the packaged trained model, while "
-        "dataset-driven pages use a compact representative tweet sample. "
-        "Clone the project and download the documented dataset for the full table."
-    )
 
 pages = [
     st.Page(predict.render, title="Predict", icon="🎯", url_path="predict", default=True),

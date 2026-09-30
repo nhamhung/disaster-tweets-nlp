@@ -138,9 +138,9 @@ needed, and they already pass without any real data.
 
 ## Deploy
 
-The repository includes the trained model and a compact demo dataset, so a clone and the hosted app work without private secrets. GitHub Pages publishes the full report directly, while Streamlit Community Cloud serves the interactive app.
+The Streamlit app fetches its source data through the Kaggle API at runtime. Configure either KAGGLE_API_TOKEN or a [kaggle] secrets section containing username and key.
 
-- GitHub repository: <https://github.com/nhamhhung/disaster-tweets-nlp>
-- Report: <https://nhamhhung.github.io/disaster-tweets-nlp/>
+- Repository: <https://github.com/nhamhhung/disaster-tweets-nlp>
+- Report: <https://nhamhung.github.io/disaster-tweets-nlp/>
 - Streamlit: <https://disaster-tweets-nlp.streamlit.app>
-- Deployment and fork setup: [`docs/SETUP_AND_DEPLOYMENT.md`](docs/SETUP_AND_DEPLOYMENT.md)
+- Fork setup: [docs/SETUP_AND_DEPLOYMENT.md](docs/SETUP_AND_DEPLOYMENT.md)

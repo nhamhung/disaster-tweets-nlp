@@ -36,7 +36,6 @@ DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 MODELS_DIR = PROJECT_ROOT / "models"
 
 RAW_CSV = DATA_RAW_DIR / "tweets.csv"
-DEMO_CSV = PROJECT_ROOT / "data" / "demo" / "tweets_sample.csv"
 MODEL_PATH = MODELS_DIR / "model.joblib"
 
 # --- Kaggle source ---------------------------------------------------------

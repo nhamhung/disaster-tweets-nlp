@@ -1,7 +1,10 @@
 """Data loading helpers.
 
 The raw CSV is not committed to the repo (best fetched fresh rather than
-duplicated here). Download it first — see the project README.
+duplicated here). Download it first — see the project README — or let
+`_require_file` fetch it automatically via the Kaggle API (used when
+deploying without a Docker image that already bakes the file in; see
+`app/pages_src/shared.py` for how deployed credentials get wired in).
 """
 
 from pathlib import Path
@@ -12,26 +15,43 @@ import pandas as pd
 from . import config
 
 
+def _download_from_kaggle() -> bool:
+    """Best-effort automatic fetch via the Kaggle API. Returns whether
+    the target file exists afterward. Silently does nothing (returns
+    False) if the `kaggle` package isn't installed or no credentials
+    are configured — callers fall back to the manual-download error
+    message either way, so this never needs to be trusted to succeed.
+    """
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+
+        api = KaggleApi()
+        api.authenticate()
+        config.DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+        api.dataset_download_files(config.KAGGLE_DATASET, path=str(config.DATA_RAW_DIR), unzip=True, quiet=True)
+    except Exception:
+        return False
+    return config.RAW_CSV.exists()
+
+
 def _require_file(path: Path) -> Path:
     if not path.exists():
+        _download_from_kaggle()
+    if not path.exists():
         raise FileNotFoundError(
-            f"{path} not found. Download the dataset first — see the "
-            "README's 'Get the data' section, e.g.:\n"
+            f"{path} not found, and automatic download via the Kaggle API "
+            "didn't produce it either (no credentials configured, or the "
+            "`kaggle` package isn't installed). Download the dataset "
+            "manually instead — see the README's 'Get the data' section, e.g.:\n"
             f"  kaggle datasets download -d {config.KAGGLE_DATASET} -p {config.DATA_RAW_DIR}\n"
             f"  unzip -o {config.DATA_RAW_DIR / 'disaster-tweets.zip'} -d {config.DATA_RAW_DIR}"
         )
     return path
 
 
-def using_demo_data() -> bool:
-    """Return whether the compact, repository-packaged sample is active."""
-    return not config.RAW_CSV.exists()
-
-
 def load_tweets() -> pd.DataFrame:
-    """Load the full table when present, otherwise the deployment sample."""
-    path = config.DEMO_CSV if using_demo_data() else config.RAW_CSV
-    return pd.read_csv(_require_file(path))
+    """Load the full labeled-tweets table."""
+    return pd.read_csv(_require_file(config.RAW_CSV))
 
 
 def split_features_target(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
