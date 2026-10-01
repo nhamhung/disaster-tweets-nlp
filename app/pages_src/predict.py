@@ -15,6 +15,11 @@ def _load_random_tweet():
     st.session_state["tweet_text"] = row[config.TEXT_COL]
     st.session_state["tweet_keyword"] = row[config.KEYWORD_COL] if pd.notna(row[config.KEYWORD_COL]) else ""
     st.session_state["tweet_location"] = row[config.LOCATION_COL] if pd.notna(row[config.LOCATION_COL]) else ""
+    st.session_state["loaded_tweet_features"] = {
+        "tweet_text": st.session_state["tweet_text"],
+        "tweet_keyword": st.session_state["tweet_keyword"],
+        "tweet_location": st.session_state["tweet_location"],
+    }
     st.session_state["actual_label"] = "Disaster" if row[config.TARGET_COL] == 1 else "Not Disaster"
     st.session_state["loaded_a_record"] = True
 
@@ -24,7 +29,21 @@ def _clear_fields():
     st.session_state["tweet_keyword"] = ""
     st.session_state["tweet_location"] = ""
     st.session_state.pop("actual_label", None)
+    st.session_state.pop("loaded_tweet_features", None)
     st.session_state["loaded_a_record"] = False
+
+
+def _matches_loaded_tweet(
+    current: dict | None = None, reference: dict | None = None
+) -> bool:
+    """Only a completely unchanged historical tweet has valid ground truth."""
+    if reference is None:
+        reference = st.session_state.get("loaded_tweet_features")
+    if reference is None:
+        return False
+    if current is None:
+        current = {key: st.session_state[key] for key in reference}
+    return current == reference
 
 
 def render():
@@ -54,7 +73,10 @@ def render():
         st.button("↺ Clear", on_click=_clear_fields, width="stretch")
 
     if st.session_state.get("loaded_a_record"):
-        st.info("Loaded a real tweet. Its actual label is revealed after you predict.")
+        st.info(
+            "Loaded a real tweet. Its recorded label is shown only while the "
+            "text, keyword, and location remain unchanged."
+        )
 
     st.text_area("Tweet text", key="tweet_text", height=100, placeholder="e.g. Massive wildfire spreading near the highway, evacuation ordered")
 
@@ -84,11 +106,14 @@ def render():
         classes = pipeline.named_steps["model"].classes_
 
         actual = st.session_state.get("actual_label")
-        if actual is not None:
-            match = "✅ matches the model" if actual == prediction else "❌ differs from the model"
-            st.subheader(f"Prediction: **{prediction}**  |  Actual: **{actual}** ({match})")
+        if actual is not None and _matches_loaded_tweet():
+            match = "✅ matches the recorded outcome" if actual == prediction else "❌ differs from the recorded outcome"
+            st.subheader(f"Prediction: **{prediction}**  |  Recorded label: **{actual}** ({match})")
+            st.caption("This comparison is for one unchanged historical tweet; it is not proof that the model is always correct.")
         else:
             st.subheader(f"Prediction: **{prediction}**")
+            if actual is not None:
+                st.info("The loaded tweet was edited, so its original recorded label no longer applies and is not compared.")
 
         proba_df = pd.DataFrame({"Label": classes, "Probability": proba}).sort_values(
             "Probability", ascending=False
