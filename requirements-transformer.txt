@@ -1,0 +1,8 @@
+# Extra dependencies for the leaderboard transformer model only
+# (scripts/make_transformer_submission.py). Kept out of requirements.txt
+# so the Streamlit app and its Docker image stay lightweight — torch alone
+# roughly doubles the venv size.
+#
+#   pip install -r requirements.txt -r requirements-transformer.txt
+torch>=2.2
+transformers>=4.40

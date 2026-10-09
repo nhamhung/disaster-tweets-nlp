@@ -76,7 +76,10 @@ the website before the API will serve anything — I checked directly,
 and `kaggle competitions download` returns a 403 even when I was
 authenticated. I ended up using a public *dataset* mirror of the same
 task instead, `vstepanenko/disaster-tweets`, which has the same 4
-input columns and a larger, re-scraped sample.
+input columns and a larger, re-scraped sample. Later, once I'd joined
+the competition to submit to its leaderboard, that choice turned out to
+matter far more than I expected — see [Climbing the Kaggle
+leaderboard](#climbing-the-kaggle-leaderboard).
 
 Beyond just running the usual "compare class-imbalance techniques"
 playbook, I wanted this project to make one point I hadn't seen spelled
@@ -398,6 +401,102 @@ engineering those simple counts alongside the TF-IDF vocabulary — if
 I'd relied on TF-IDF word features alone, I'd have missed the single
 strongest signal in the whole model.
 
+## Climbing the Kaggle leaderboard
+
+Everything above optimizes for a model I can explain. Once I'd joined
+the competition, I also wanted to see how far up the real leaderboard I
+could get, and how much of what I'd measured locally would survive
+contact with Kaggle's hidden test set. The competition scores F1 on the
+"Disaster" class alone (not the macro-F1 I've used elsewhere in this
+report), so that's the metric for this whole section.
+
+```{python}
+#| echo: false
+#| label: fig-leaderboard
+#| fig-cap: "Public leaderboard F1 for each submission. Dashed line: the score needed for rank 100 (0.8345) on a 438-team snapshot."
+climb = pd.DataFrame(
+    {
+        "Submission": [
+            "1. TF-IDF\n+ LightGBM",
+            "2. Sentence embeddings\n+ LightGBM",
+            "3. DistilBERT\n(fine-tuned)",
+            "4. Twitter-RoBERTa\n5-fold, official data",
+        ],
+        "Local F1": [0.648, 0.718, 0.750, 0.806],
+        "Leaderboard F1": [0.67269, 0.69659, 0.75053, 0.84339],
+        "Rank": ["~416", "~414", "~402", "~32"],
+    }
+)
+
+fig, ax = plt.subplots(figsize=(7.5, 4))
+bars = ax.bar(climb["Submission"], climb["Leaderboard F1"], color=[PALETTE[2]] * 3 + [PALETTE[0]])
+ax.axhline(0.8345, linestyle="--", color=PALETTE[3], linewidth=1.2)
+ax.text(-0.4, 0.8395, "top 100", color=PALETTE[3], fontsize=9)
+for bar, rank in zip(bars, climb["Rank"]):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.005, f"rank {rank}", ha="center", fontsize=9)
+ax.set_ylim(0.6, 0.88)
+ax.set_ylabel("Public leaderboard F1")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| echo: false
+climb.assign(Submission=climb["Submission"].str.replace("\n", " ")).set_index("Submission")
+```
+
+Local F1 for submissions 1–2 is 5-fold cross-validation on the mirror,
+for 3 a single holdout split on the mirror, and for 4 out-of-fold
+predictions across 5 folds of the competition's own `train.csv`. Two
+things I tried along the way didn't make it into a submission, and I'd
+rather say so than leave them out. Re-tuning the decision threshold for
+F1 changed nothing: 0.50 was already the best threshold. A 30/70 blend
+of the TF-IDF and embeddings models added only +0.009 in
+cross-validation, too small to be worth spending a submission on.
+
+### The training data mattered more than the model
+
+The biggest lesson here wasn't about architectures. The mirror I'd
+built everything on is 81% "Not Disaster" and 19% "Disaster"; the
+competition's own `train.csv` is 57% / 43%. Every model I trained on
+the mirror learned to call a tweet a disaster too rarely — they flagged
+15–23% of the test set as disasters, against 39% once I switched — and
+F1 on the "Disaster" class punishes missed disasters hard. Running the
+same RoBERTa recipe on both datasets made it concrete: after one epoch,
+0.718 validation F1 on the mirror versus 0.793 on the official data.
+
+It also explains why my local scores were unreliable at first.
+Submission 2's cross-validation gain over submission 1 was +0.070; on
+the leaderboard it shrank to +0.024, because I was validating on a
+different distribution from the one I was being scored on. Once I
+trained and validated on the competition's own data, the local estimate
+(0.806) became a sensible predictor of the leaderboard score (0.843).
+
+### The final model
+
+My best submission follows a [public
+solution](https://github.com/KunyinSun/eda-competition) that reported
+0.83971 on the private leaderboard. It fine-tunes
+`cardiffnlp/twitter-roberta-base` — a RoBERTa model pretrained on tweets
+rather than general web text — with the `keyword` and the raw tweet
+text encoded as a sentence pair. I deliberately skip the URL/@mention
+stripping I use for TF-IDF: this model already saw those patterns in
+pretraining. I train 5 models on 5 stratified folds (3 epochs each) and
+average their test-set probabilities, which scored 0.84339, rank ~32 of
+438.
+
+Seven teams sit above 0.99 at the very top of the leaderboard. These
+tweets are real, searchable historical posts, so I'm fairly sure those
+scores come from looking up the true labels rather than from modeling;
+leaving them out, my submission ranks around 25th.
+
+I didn't make this the app's model. It needs `torch` (roughly another
+gigabyte of dependencies), about 30 minutes to train on an Apple M4,
+and its predictions come from 768 anonymous hidden dimensions that SHAP
+can't turn into readable words — the opposite of the tradeoff I made
+in the model comparison above. Keeping both models, each doing the job
+it's suited to, felt more honest than forcing one to do both.
+
 ## Discussion: what this project doesn't do
 
 I classified individual tweets as disaster-related or not — I want to
@@ -447,6 +546,11 @@ each other. Choosing the production model on that basis — not on the
 single highest number in a sweep — is the main methodological point I
 wanted this project to make, and I think it generalizes well beyond
 this one dataset: a model's raw score is only half the story if nobody
-can explain why it made a given prediction. Real disaster-response
+can explain why it made a given prediction. Taking the project to the
+Kaggle leaderboard added a second lesson: my climb from rank ~416 to
+~32 came mostly from training on data drawn from the same source as the
+test set, and only then from a stronger model — a reminder that a
+validation score is only as good as how closely the validation data
+resembles what you'll actually be scored on. Real disaster-response
 triage remains a substantially larger problem than what I built here,
 and I'd rather state that scope boundary plainly than blur it.

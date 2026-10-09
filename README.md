@@ -4,15 +4,28 @@ A worked, end-to-end data science project predicting whether a tweet
 describes a **real disaster** (`"Disaster"`) or **not** (`"Not
 Disaster"`) — the classic "Real or Not? NLP with Disaster Tweets" task.
 
-## Why this dataset, and why not the Kaggle competition directly
+**Kaggle leaderboard: public F1 0.84339, rank ~32 of 438** — up from
+0.67269 (rank ~416) with this project's first submission. See
+[Climbing the leaderboard](#climbing-the-leaderboard) for every step,
+including the ones that didn't help.
 
-The original Kaggle *competition* (`nlp-getting-started`) requires
-accepting its rules on the website before the API will serve the data —
-verified directly: `kaggle competitions download -c nlp-getting-started`
-returns a 403 even when authenticated. This project instead uses a
-public *dataset* mirror of the same task, `vstepanenko/disaster-tweets`
-— the same 4 input columns (`keyword`, `location`, `text`, `target`), a
-larger, re-scraped sample (11,370 rows).
+## Two models, two jobs
+
+This project ships two models, deliberately kept separate:
+
+| | Explainable model | Leaderboard model |
+|---|---|---|
+| What | TF-IDF + LightGBM + `RandomOverSampler` | 5-fold ensemble of `cardiffnlp/twitter-roberta-base` |
+| Trained on | `vstepanenko/disaster-tweets`, a public *dataset* mirror (11,370 rows) | The competition's own `train.csv` (7,613 rows) |
+| Used by | Notebook, Streamlit app, SHAP, `scripts/train.py` | `scripts/make_transformer_submission.py` |
+| Kaggle public F1 | 0.67269 | **0.84339** |
+| Why keep it | Trains in seconds; SHAP explains predictions in readable words; app/Docker stay light | Best score — but needs `torch` (~1GB), ~30 min to train, and its features are 768 anonymous dimensions SHAP can't make readable |
+
+The mirror exists because the original Kaggle *competition*
+(`nlp-getting-started`) requires accepting its rules in a browser before
+the API serves anything (verified: `kaggle competitions download`
+returns a 403 until you have). Using it for the explainable model keeps
+that model reproducible without a competition account.
 
 ## Prerequisites
 
@@ -32,25 +45,28 @@ Install once, before Setup below:
 | A well-documented notebook building the model, applying good practices | `notebooks/01_eda_and_modeling.ipynb` |
 | A multi-page Streamlit app to try the model on any tweet you type | `app/streamlit_app.py` + `app/pages_src/` (+ `app/Dockerfile`) |
 | A research-style writeup | `report/report.qmd` |
-| A script that trains and saves the production model | `scripts/train.py` |
+| A script that trains and saves the explainable model | `scripts/train.py` |
+| Kaggle submission scripts — explainable model, and the leaderboard model | `scripts/make_submission.py`, `scripts/make_transformer_submission.py` |
 
-All four share one feature-engineering/model source of truth in
-`src/disaster_tweets_nlp/`, so the notebook, the app, and the script
-can never quietly drift apart — they all load the same trained
-`models/model.joblib`.
+All of these share one source of truth in `src/disaster_tweets_nlp/`,
+so the notebook, the app, and the scripts can never quietly drift
+apart. The notebook, app, and `make_submission.py` all load the same
+trained `models/model.joblib`.
 
 ## Project layout
 
 ```
-data/raw/                   # downloaded Kaggle CSV (gitignored — see below)
-data/processed/              # any cached intermediate data (gitignored)
-notebooks/                   # the main EDA + modeling notebook
-src/disaster_tweets_nlp/     # shared config, data loading, feature engineering, model code, SHAP interpretability
-models/                      # trained pipeline artifact (model.joblib)
+data/raw/                   # downloaded Kaggle CSVs (gitignored — see below)
+data/processed/              # cached intermediate data, incl. transformer fold predictions (gitignored)
+notebooks/                   # the main EDA + modeling notebook (explainable model)
+src/disaster_tweets_nlp/     # shared config, data loading, feature engineering, model code, SHAP,
+                             #   and transformer.py (the leaderboard model)
+models/                      # trained explainable-model artifact (model.joblib)
 app/                         # Streamlit app (multi-page, app/pages_src/) + Dockerfile
-scripts/                     # train.py
+scripts/                     # train.py, make_submission.py, make_transformer_submission.py
 report/                      # Quarto research writeup
-tests/                       # pytest tests for feature engineering and model code (synthetic data — no download needed)
+tests/                       # pytest tests (synthetic data — no download needed)
+requirements-transformer.txt # extra deps for the leaderboard model only (torch, transformers)
 ```
 
 ## Setup
@@ -59,6 +75,9 @@ tests/                       # pytest tests for feature engineering and model co
 python3.12 -m venv .venv          # use the 3.12 interpreter specifically
 source .venv/bin/activate         # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+# Only if you want to train the leaderboard model (~1GB more, mostly torch):
+pip install -r requirements-transformer.txt
 ```
 
 ## Making changes
@@ -67,9 +86,10 @@ pip install -r requirements.txt
 (paths, schema, constants), `data.py` (loading/splitting, the
 duplicate/conflicting-label handling), `features.py` (TF-IDF + the
 `has_location`/keyword-decoding logic), `model.py` (pipelines, training,
-evaluation), `interpretability.py` (SHAP). The notebook, the app, and
-`scripts/train.py` all import from here; nothing re-derives logic
-locally, so a change here propagates everywhere automatically.
+evaluation), `interpretability.py` (SHAP), `transformer.py` (the
+leaderboard model). The notebook, the app, and the scripts all import
+from here; nothing re-derives logic locally, so a change here propagates
+everywhere automatically.
 
 The edit loop:
 
@@ -124,6 +144,48 @@ class-weighting wins on this portfolio's tabular projects. ADASYN isn't
 used at all for this project — a k-nearest-neighbors search is a poor
 fit for TF-IDF's thousands of sparse, mostly-zero dimensions.
 
+## Climbing the leaderboard
+
+Every step below was measured before being submitted; the competition
+scores F1 on the "Disaster" class (not the macro-F1 used above), so
+that's the metric in this table. Ranks are approximate, from a
+leaderboard snapshot of 438 teams.
+
+| # | Change | Local F1 | Public LB F1 | Rank |
+|---|---|---|---|---|
+| 1 | TF-IDF + LightGBM + `RandomOverSampler` (the explainable model) | 0.648 (5-fold CV, mirror) | 0.67269 | ~416 |
+| — | Tune the decision threshold for F1 | 0.648 at the default 0.50 — already optimal | not submitted | — |
+| 2 | Swap TF-IDF for `all-MiniLM-L6-v2` sentence embeddings, same LightGBM | 0.718 (5-fold CV, mirror) | 0.69659 | ~414 |
+| — | Blend TF-IDF + embeddings (30/70) | 0.727 (5-fold CV, mirror) | not submitted | — |
+| 3 | Fine-tune `distilbert-base-uncased` | 0.750 (holdout, mirror) | 0.75053 | ~402 |
+| 4 | **`twitter-roberta-base` + keyword as a sentence pair + 5-fold ensemble, trained on the competition's own data** | **0.806 (5-fold OOF, official)** | **0.84339** | **~32** |
+
+What actually moved the score:
+
+- **The training data, more than the model.** The mirror is 81/19 Not
+  Disaster/Disaster; the competition's `train.csv` is 57/43. Every model
+  trained on the mirror learned to say "Disaster" too rarely (15–23% of
+  test tweets, vs. 39% after switching), which F1 on the "Disaster"
+  class punishes hard. Same RoBERTa recipe, first epoch: 0.718 on the
+  mirror, 0.793 on the official data.
+- **Local scores on the mirror didn't transfer reliably.** Step 2's CV
+  gain (+0.070) became +0.024 on the leaderboard. Step 4's
+  out-of-fold F1 on the official data was a much better predictor.
+- **A tweet-pretrained transformer beat every classical approach** — but
+  only once it was trained on data from the same source as the test set.
+- **Tuning the threshold did nothing** (0.50 was already optimal) and a
+  blend was too small a gain to spend a submission on — both reported
+  rather than dropped.
+
+The top ~7 leaderboard entries score ~1.0. These tweets are real,
+searchable historical posts, so those scores almost certainly come from
+looking up the true labels, not from modeling; leaving them out, this
+project sits around rank 25.
+
+The recipe in step 4 follows a [public
+solution](https://github.com/KunyinSun/eda-competition) (private LB
+0.83971); `src/disaster_tweets_nlp/transformer.py` reproduces it.
+
 ## What this project deliberately doesn't do
 
 This is tweet-topic classification, not disaster-response triage: no
@@ -157,6 +219,36 @@ PYTHONPATH=src python scripts/train.py                    # default: LightGBM + 
 PYTHONPATH=src python scripts/train.py --model "Random Forest"
 PYTHONPATH=src python scripts/train.py --no-resample       # class-weighting/plain training instead, for comparison
 PYTHONPATH=src python scripts/train.py --help
+```
+
+## Generate a Kaggle submission
+
+Join the competition first — its API 403s on every file until you have:
+[kaggle.com/competitions/nlp-getting-started](https://www.kaggle.com/competitions/nlp-getting-started)
+→ **Join Competition** / accept its rules, in a browser. Both scripts
+then auto-download the competition files they need (see
+`data.load_competition_train`/`load_competition_test`) and write
+`submission.csv` as `id,target` rows with `1`/`0` labels.
+
+**Leaderboard model** (public F1 0.84339, ~30 min on an Apple M4 GPU —
+expect much longer on CPU only):
+
+```bash
+pip install -r requirements-transformer.txt   # once
+python scripts/make_transformer_submission.py
+kaggle competitions submit -c nlp-getting-started -f submission.csv -m "twitter-roberta 5-fold"
+```
+
+Each finished fold is cached under `data/processed/transformer_folds/`,
+so an interrupted run picks up where it stopped. Delete that folder to
+force a clean retrain. `--folds`/`--epochs` change the recipe (see
+`--help`).
+
+**Explainable model** (public F1 0.67269, seconds):
+
+```bash
+PYTHONPATH=src:. python scripts/make_submission.py
+kaggle competitions submit -c nlp-getting-started -f submission.csv -m "tf-idf lightgbm"
 ```
 
 ## Run the app
@@ -233,8 +325,10 @@ PYTHONPATH=src pytest tests/
 ```
 
 These test the feature engineering, duplicate/conflicting-label
-handling, and model logic directly with synthetic data — no download
-needed, and they already pass without any real data.
+handling, model logic, and the leaderboard model's input handling
+directly with synthetic data — no download needed, and they already
+pass without any real data. They never import `torch`, so they run
+without `requirements-transformer.txt` installed.
 
 ## Deploy
 

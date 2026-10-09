@@ -9,6 +9,7 @@ deploying without a Docker image that already bakes the file in; see
 
 import os
 from pathlib import Path
+from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
@@ -59,6 +60,66 @@ def load_tweets() -> pd.DataFrame:
     """Load fast sample data by default; opt into the full Kaggle download with USE_FULL_KAGGLE_DATA=true."""
     path = config.SAMPLE_CSV if using_sample_data() else _require_file(config.RAW_CSV)
     return pd.read_csv(path)
+
+
+def _download_competition_file(remote_name: str, local_path: Path) -> bool:
+    """Best-effort automatic fetch of one of the real competition's
+    files, renamed to `local_path` so it can't collide with the dataset
+    mirror. Requires having accepted the competition's rules on
+    kaggle.com first; returns False otherwise (403), same as every other
+    failure mode here.
+    """
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+
+        api = KaggleApi()
+        api.authenticate()
+        config.DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+        api.competition_download_file(
+            config.KAGGLE_COMPETITION, remote_name, path=str(config.DATA_RAW_DIR), quiet=True
+        )
+        downloaded = config.DATA_RAW_DIR / remote_name
+        zipped = config.DATA_RAW_DIR / f"{remote_name}.zip"
+        if zipped.exists():
+            with ZipFile(zipped) as zf:
+                zf.extractall(config.DATA_RAW_DIR)
+            zipped.unlink()
+        downloaded.rename(local_path)
+    except Exception:
+        return False
+    return local_path.exists()
+
+
+def _require_competition_file(remote_name: str, local_path: Path) -> Path:
+    if not local_path.exists():
+        _download_competition_file(remote_name, local_path)
+    if not local_path.exists():
+        raise FileNotFoundError(
+            f"{local_path} not found, and automatic download via the Kaggle API "
+            "didn't produce it either. Make sure you've joined the competition at "
+            f"https://www.kaggle.com/competitions/{config.KAGGLE_COMPETITION} "
+            "(accept its rules in a browser — the API 403s until you have), then "
+            "download manually:\n"
+            f"  kaggle competitions download -c {config.KAGGLE_COMPETITION} -f {remote_name} -p {config.DATA_RAW_DIR}\n"
+            f"  mv {config.DATA_RAW_DIR / remote_name} {local_path}"
+        )
+    return local_path
+
+
+def load_competition_train() -> pd.DataFrame:
+    """Load the real competition's labeled train set (7,613 rows, 57/43
+    class balance — unlike the mirror's 81/19). Used by the leaderboard
+    transformer model (`scripts/make_transformer_submission.py`).
+    """
+    return pd.read_csv(_require_competition_file("train.csv", config.COMPETITION_TRAIN_CSV))
+
+
+def load_competition_test() -> pd.DataFrame:
+    """Load the real competition's test set (`id`, `keyword`, `location`,
+    `text` — no `target`). Used only to generate Kaggle submissions.
+    """
+    _require_competition_file("sample_submission.csv", config.COMPETITION_SAMPLE_SUBMISSION_CSV)
+    return pd.read_csv(_require_competition_file("test.csv", config.COMPETITION_TEST_CSV))
 
 
 def split_features_target(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
