@@ -3,7 +3,7 @@
 ## Local setup
 
 ```bash
-git clone https://github.com/nhamhhung/disaster-tweets-nlp.git
+git clone https://github.com/nhamhung/disaster-tweets-nlp.git
 cd disaster-tweets-nlp
 python -m venv .venv
 source .venv/bin/activate

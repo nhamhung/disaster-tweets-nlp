@@ -1,5 +1,9 @@
 # Disaster Tweets NLP
 
+> **New to Python, or just want to try it?** See [START_HERE.md](START_HERE.md): download the ZIP,
+> double-click `start_windows.bat` (Windows) or `start_mac.command` (macOS), and it sets everything up.
+> No Kaggle account is needed for the bundled sample. For a plain-language overview, see `report/beginners_guide.html`.
+
 A worked, end-to-end data science project predicting whether a tweet
 describes a **real disaster** (`"Disaster"`) or **not** (`"Not
 Disaster"`) — the classic "Real or Not? NLP with Disaster Tweets" task.
@@ -42,7 +46,7 @@ Install once, before Setup below:
 
 | Deliverable | Where |
 |---|---|
-| A well-documented notebook building the model, applying good practices | `notebooks/01_eda_and_modeling.ipynb` |
+| A step-by-step beginner's notebook that rebuilds the model in memory and explains every step | `notebooks/01_eda_and_modeling.ipynb` |
 | A multi-page Streamlit app to try the model on any tweet you type | `app/streamlit_app.py` + `app/pages_src/` (+ `app/Dockerfile`) |
 | A research-style writeup | `report/report.qmd` |
 | A script that trains and saves the explainable model | `scripts/train.py` |
@@ -56,7 +60,7 @@ trained `models/model.joblib`.
 ## Project layout
 
 ```
-data/raw/                   # downloaded Kaggle CSVs (gitignored — see below)
+data/raw/                   # optional full Kaggle dataset (gitignored — see below)
 data/processed/              # cached intermediate data, incl. transformer fold predictions (gitignored)
 notebooks/                   # the main EDA + modeling notebook (explainable model)
 src/disaster_tweets_nlp/     # shared config, data loading, feature engineering, model code, SHAP,
@@ -196,6 +200,7 @@ disaster-response monitoring system would need beyond this.
 
 ## Get the data
 
+The notebook runs immediately on the bundled sample. To use the optional complete dataset, fetch it with the
 [Kaggle API](https://www.kaggle.com/docs/api) (`pip install kaggle`,
 then put your `kaggle.json`/access token in `~/.kaggle/`):
 
@@ -208,8 +213,15 @@ This produces `data/raw/tweets.csv`.
 
 ## Run the notebook
 
+`notebooks/01_eda_and_modeling.ipynb` is a step-by-step guide for beginners (basic Python and
+pandas, no ML/NLP background): the data and its duplicates, cleaning and TF-IDF worked by hand on
+toy examples, honest cross-validation and leakage, baselines, the model comparison, F1 with a
+worked example, the threshold, SHAP word effects, and the app's prediction path. It reads
+`data/raw/tweets.csv` (falls back to the bundled sample if missing), writes nothing, and runs in
+about a minute. The leaderboard transformer is described in words only (it needs PyTorch).
+
 ```bash
-jupyter notebook notebooks/01_eda_and_modeling.ipynb
+jupyter lab notebooks/01_eda_and_modeling.ipynb
 ```
 
 ## Train from the command line
@@ -334,7 +346,8 @@ without `requirements-transformer.txt` installed.
 
 The Streamlit app starts immediately from a bundled 1,000-row stratified sample sourced from Kaggle. Set `USE_FULL_KAGGLE_DATA=true` to fetch and use the complete dataset through the Kaggle API; configure either `KAGGLE_API_TOKEN` or a `[kaggle]` secrets section containing username and key.
 
-- Repository: <https://github.com/nhamhhung/disaster-tweets-nlp>
+- Repository: <https://github.com/nhamhung/disaster-tweets-nlp>
 - Report: <https://nhamhung.github.io/disaster-tweets-nlp/>
+- Beginner's guide: <https://nhamhung.github.io/disaster-tweets-nlp/beginners-guide.html>
 - Streamlit: <https://disaster-tweets-nlp.streamlit.app>
 - Fork setup: [docs/SETUP_AND_DEPLOYMENT.md](docs/SETUP_AND_DEPLOYMENT.md)
