@@ -1,3 +1,44 @@
+[project]
+name = "disaster-tweets-nlp"
+version = "1.0.0"
+description = "Classify whether a tweet is about a real disaster: TF-IDF + LightGBM, explained with SHAP"
+requires-python = ">=3.12,<3.13"
+# Exact versions the project was built and tested with (uv.lock pins everything else).
+# The leaderboard transformer model (torch, transformers) is optional: see requirements-transformer.txt.
+dependencies = [
+    "pandas==3.0.6",
+    "numpy==2.5.3; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    # Intel Macs: shap needs numba, whose last Intel-Mac wheel (0.62.1) needs numpy < 2.4.
+    "numpy==2.3.5; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "scikit-learn==1.9.1",
+    "imbalanced-learn==0.14.2",
+    "lightgbm==4.7.0",
+    "shap==0.52.0",
+    "joblib==1.6.0",
+    "matplotlib==3.11.2",
+    "seaborn==0.13.2",
+    "plotly==7.1.0",
+    "streamlit==1.64.0",
+    "kaggle==2.2.4",
+    "jupyterlab==4.6.4",
+    "ipykernel==7.3.0",
+    # Unpacks the libomp fallback scripts/launch.py may fetch on macOS.
+    "backports-zstd==1.8.0; sys_platform == 'darwin'",
+    "ipywidgets==8.1.9",  # progress bars in the notebook (shap uses tqdm)
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1", "ruff==0.16.10"]
+
+[tool.uv]
+package = false  # a project folder, not an installable library
+# 26.x ships no ready-built wheel for Intel Macs; 25.x does (needed by JupyterLab).
+constraint-dependencies = [
+    "argon2-cffi-bindings<26",
+    # Stops the resolver from falling back to an ancient numba with no wheels (shap needs numba).
+    "numba>=0.61",
+]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
